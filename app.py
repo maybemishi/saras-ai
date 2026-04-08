@@ -4,25 +4,18 @@ app.py — SARAS Streamlit Research Dashboard
 Run with:
   streamlit run app.py
 """
-import warnings
-import traceback
-
-def custom_warning_handler(message, category, filename, lineno, file=None, line=None):
-    print("\n⚠️ WARNING TRIGGERED FROM:")
-    traceback.print_stack(limit=5)
-
-warnings.showwarning = custom_warning_handler
-
 
 import streamlit as st
 import time
 import io
-
 from config import settings
 from graph import saras_graph
 from state import ResearchState
 from utils.pdf_parser import ingest_pdf, clear_session_collection
 from utils.credibility import label_for_score
+from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.lib.styles import getSampleStyleSheet
+
 
 # ── Page config ─────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -251,7 +244,7 @@ if st.session_state.result:
     tab_report, tab_sources, tab_analyst = st.tabs([
         "📄 Full Report", "🔗 Sources", "🔍 Analyst Notes"
     ])
-
+    
     # ── Tab 1: Report ─────────────────────────────────────────────────────
     with tab_report:
         report_md = result.get("report_markdown", "")
@@ -260,13 +253,62 @@ if st.session_state.result:
 
         st.markdown(full_report)
 
-        # Download button
+        # ── PDF Generator ─────────────────────────────────────────
+        def generate_pdf(text):
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+            from reportlab.lib.styles import getSampleStyleSheet
+            import io
+
+            buffer = io.BytesIO()
+            doc = SimpleDocTemplate(buffer)
+            styles = getSampleStyleSheet()
+
+            content = []
+            for line in text.split("\n"):
+                content.append(Paragraph(line, styles["Normal"]))
+                content.append(Spacer(1, 8))  # spacing between lines
+
+            doc.build(content)
+            buffer.seek(0)
+            return buffer
+
+        # ── DOCX Generator ────────────────────────────────────────
+        def generate_docx(text):
+            from docx import Document
+            import io
+
+            doc = Document()
+            for line in text.split("\n"):
+                doc.add_paragraph(line)
+
+            buffer = io.BytesIO()
+            doc.save(buffer)
+            buffer.seek(0)
+            return buffer
+
+        # ── Download Section ──────────────────────────────────────
+        st.markdown("## 📥 Download")
+
+        format_option = st.selectbox(
+            "Choose format",
+            ["PDF", "DOCX"]
+        )
+
+        if format_option == "PDF":
+            file_data = generate_pdf(full_report)
+            file_name = "saras_report.pdf"
+            mime = "application/pdf"
+        else:
+            file_data = generate_docx(full_report)
+            file_name = "saras_report.docx"
+            mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
         st.download_button(
-            label="⬇️ Download Report (.md)",
-            data=full_report.encode("utf-8"),
-            file_name="saras_report.md",
-            mime="text/markdown",
-            use_container_width=True,
+            label="⬇️ Download File",
+            data=file_data,
+            file_name=file_name,
+            mime=mime,
+            use_container_width=True
         )
 
     # ── Tab 2: Sources ────────────────────────────────────────────────────

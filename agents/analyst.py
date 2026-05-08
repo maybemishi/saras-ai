@@ -69,11 +69,8 @@ def _prepare_context(state: ResearchState) -> str:
         lines.append(f"[Source {i}]: {chunk[:400]}")
     return "\n\n".join(lines)
 
-#eval change here
-def analyst_node(state: ResearchState):
-    return state  # 🔴 TEMPORARILY DISABLE ANALYST
-#commented this out
-#def analyst_node(state: ResearchState) -> dict:
+
+def analyst_node(state: ResearchState) -> dict:
     """
     LangGraph node: Analyst.
     Reads:  state.query, state.raw_text_chunks, state.retry_count
